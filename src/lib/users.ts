@@ -1,11 +1,14 @@
 import express = require('express');
+import session = require('express-session');
+
 import bcrypt = require('bcrypt');
 import mysql = require('mysql');
+import {DB_PASS} from "../environments";
 
 const connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'xqyy4:8w4GRz6r)%BtJG',
+    password: DB_PASS,
     database: 'rummy',
     port: 3306
 });
@@ -22,7 +25,7 @@ app.use(cors());
 app.get('/api/users/', (req, res) => {
 
 
-    connection.query('SELECT * FROM users', (err, rows, fields) => {
+    connection.query('SELECT * FROM users', (err, rows) => {
         if (err) {
             console.log(err);
         }
@@ -59,7 +62,7 @@ app.post('/api/user/create/', async (req, res) => {
     let sql = 'insert into users (username, password) values (?, ?)';
     let params = [req.body.username, hashedPassword];
 
-    connection.query(sql, params, (err, rows, fields) => {
+    connection.query(sql, params, (err, rows) => {
         if (err) {
             console.log(err);
         }
@@ -84,7 +87,7 @@ app.post('/api/user/login/', async (req, res) => {
     let sql = 'select * from users where username = ?';
     let params = [username];
 
-    connection.query(sql, params, async (err, rows, fields) => {
+    connection.query(sql, params, async (err, rows) => {
         if (err) {
             console.log(err);
         } else {
