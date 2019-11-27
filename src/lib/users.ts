@@ -36,6 +36,8 @@ app.get('/api/users/', authenticateToken, (req, res) => {
         });
     });
 });
+
+
 /**
  * POST Request for users.
  */
@@ -72,12 +74,18 @@ app.post('/api/user/create/', async (req, res) => {
 });
 
 app.post('/api/user/login/', async (req, res) => {
+    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
     let errors = [];
     if (!req.body.username) {
         errors.push("'username' not specified");
     }
     if (!req.body.password) {
         errors.push("'password' not specified");
+    }
+
+    if (errors.length) {
+        res.status(400).json({error: errors.join(',')});
+        return;
     }
 
     let username = req.body.username;
@@ -109,45 +117,63 @@ app.post('/api/user/login/', async (req, res) => {
                     } else {
                         const user = {name: rows[0].username};
                         const accessToken = generateAccessToken(user);
-                        const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET, {expiresIn: '7d'});
                         let sql = 'update users set token = ? where username = ? ';
-                        let params = [refreshToken, user.name];
-                        connection.query(sql, params, (err, rows) => {
+                        let params = [accessToken, user.name];
+                        connection.query(sql, params, (err) => {
                             if (err) {
                                 console.log(err);
-                            } else {
-                                console.log(rows);
                             }
                         });
-                        res.json({
-                            message: 'success',
-                            accessToken: accessToken,
-                            refreshToken: refreshToken
-                        });
+                        const age = 3600 * 24 * 7;
+                        const options = {
+                            maxAge: age,
+                            httpOnly: true,
+                            secure: true
+                        };
+                        res.cookie('access_token', accessToken, options);
+                        res.end();
                     }
                 });
             }
         }
     });
-
-    if (errors.length) {
-        res.status(400).json({error: errors});
-        return;
-    }
 });
 
 function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
+    const token = req.cookies.access_token;
     if (token === null) return res.sendStatus(401);
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) {
+            return res.sendStatus(403);
+        }
         req.user = user;
         next()
     });
 }
 
 function generateAccessToken(user) {
-    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1m'});
+    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1d'});
 }
+
+/**
+ * GET request to return user data
+ */
+app.get('/api/user/:username', authenticateToken, (req, res) => {
+    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
+    let sql = 'SELECT username FROM users where username = ?';
+    let params = [req.params.username];
+
+    connection.query(sql, params, (err, rows) => {
+        if (err) {
+            console.log(err);
+        } else {
+            res.json({
+                data: rows
+            });
+        }
+
+    });
+});
+
