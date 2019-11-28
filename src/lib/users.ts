@@ -134,7 +134,7 @@ app.post('/api/user/login/', async (req, res) => {
                             secure: true
                         };
                         res.cookie('access_token', accessToken, options);
-                        res.json({message: 'success', auth: true})
+                        res.json({message: 'success', auth: true});
                         res.end();
                     }
                 });
@@ -193,15 +193,23 @@ function authenticateToken(req, res, next) {
     res.header("Access-Control-Allow-Origin", "https://localhost:4200");
     const token = req.cookies.access_token;
     const decoded = jwt.decode(token);
-    console.log(decoded);
     if (token === null) return res.sendStatus(401);
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
         if (err) {
             return res.sendStatus(403);
+        } else {
+            let sql = 'select token from users where username = ?';
+            let params = [decoded.name];
+            connection.query(sql, params, (err, rows) => {
+                if (rows[0].token === null) {
+                    return res.sendStatus(403);
+                } else {
+                    req.user = user;
+                    next()
+                }
+            });
         }
-        req.user = user;
-        next()
     });
 }
 
