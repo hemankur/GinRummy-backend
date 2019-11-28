@@ -101,7 +101,8 @@ app.post('/api/user/login/', async (req, res) => {
         } else {
             if (rows.length === 0) {
                 res.json({
-                    error: errorMessage
+                    message: errorMessage,
+                    auth: false
                 });
                 return;
             } else if (rows[0].username.toLowerCase() === username.toLowerCase()) {
@@ -111,7 +112,8 @@ app.post('/api/user/login/', async (req, res) => {
                     }
                     if (!result) {
                         res.json({
-                            error: errorMessage
+                            message: errorMessage,
+                            auth: false
                         });
                         return;
                     } else {
@@ -131,6 +133,7 @@ app.post('/api/user/login/', async (req, res) => {
                             secure: true
                         };
                         res.cookie('access_token', accessToken, options);
+                        res.json({message: 'success', auth: true})
                         res.end();
                     }
                 });
@@ -142,6 +145,8 @@ app.post('/api/user/login/', async (req, res) => {
 function authenticateToken(req, res, next) {
     res.header("Access-Control-Allow-Origin", "https://localhost:4200");
     const token = req.cookies.access_token;
+    const decoded = jwt.decode(token);
+    console.log(decoded);
     if (token === null) return res.sendStatus(401);
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
