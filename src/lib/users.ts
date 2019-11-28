@@ -119,8 +119,9 @@ app.post('/api/user/login/', async (req, res) => {
                     } else {
                         const user = {name: rows[0].username};
                         const accessToken = generateAccessToken(user);
+                        const iat = jwt.decode(accessToken).iat;
                         let sql = 'update users set token = ? where username = ? ';
-                        let params = [accessToken, user.name];
+                        let params = [iat, user.name];
                         connection.query(sql, params, (err) => {
                             if (err) {
                                 console.log(err);
@@ -145,8 +146,27 @@ app.post('/api/user/login/', async (req, res) => {
 /**
  * Logout route
  */
-app.post('/api/user/logout/',  (req, res) => {
-
+app.post('/api/user/logout/', (req, res) => {
+    let username = req.body.username;
+    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
+    let sql = 'update users set token = ? where username = ?';
+    let params = [null, username];
+    connection.query(sql, params, (err, row) => {
+        if (err) {
+            console.log(err);
+            res.json({
+                message: err,
+                status: false
+            });
+            return;
+        } else {
+            console.log(row);
+            res.json({
+                message: 'success',
+                status: true
+            });
+        }
+    });
 });
 
 /**
