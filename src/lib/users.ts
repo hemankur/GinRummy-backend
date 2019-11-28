@@ -142,25 +142,12 @@ app.post('/api/user/login/', async (req, res) => {
     });
 });
 
-function authenticateToken(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
-    const token = req.cookies.access_token;
-    const decoded = jwt.decode(token);
-    console.log(decoded);
-    if (token === null) return res.sendStatus(401);
+/**
+ * Logout route
+ */
+app.post('/api/user/logout/',  (req, res) => {
 
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (err) {
-            return res.sendStatus(403);
-        }
-        req.user = user;
-        next()
-    });
-}
-
-function generateAccessToken(user) {
-    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1d'});
-}
+});
 
 /**
  * GET request to return user data
@@ -181,4 +168,26 @@ app.get('/api/user/:username', authenticateToken, (req, res) => {
 
     });
 });
+
+function authenticateToken(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
+    const token = req.cookies.access_token;
+    const decoded = jwt.decode(token);
+    console.log(decoded);
+    if (token === null) return res.sendStatus(401);
+
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+        if (err) {
+            return res.sendStatus(403);
+        }
+        req.user = user;
+        next()
+    });
+}
+
+function generateAccessToken(user) {
+    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1d'});
+}
+
+
 
