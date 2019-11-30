@@ -127,7 +127,7 @@ app.post('/api/user/login/', async (req, res) => {
                                 console.log(err);
                             }
                         });
-                        const age = 3600 * 24 * 7;
+                        const age = 3600 * 60 * 24 * 7;
                         const options = {
                             maxAge: age,
                             httpOnly: true,
