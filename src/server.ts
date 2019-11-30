@@ -153,10 +153,13 @@ io.of('/games').on('connection', (socket) => {
             topCard = myDeck.draw();
         }
     });
-
+    
     socket.on('newCard', (data) => {
-        myDeck.addToBottom(topCard);
-        topCard = myDeck.draw();
+        if (socket === p1Socket) {
+            P1Cards.push(myDeck.draw());
+        } else {
+            P2Cards.push(myDeck.draw());
+        }
     });
 });
 
