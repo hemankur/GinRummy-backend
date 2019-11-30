@@ -50,7 +50,8 @@ let myDeck = new Deck(cards);
 myDeck = myDeck.shuffle();
 let p1initial: any;
 let p2initial: any;
-let drawTop: any;
+let topCard: any;
+let removedCard: any;
 let Player = (id, name, cards, room) => {
     let self = {
         name: name,
@@ -119,9 +120,37 @@ io.of('/games').on('connection', (socket) => {
     });
 
     socket.on('move', (data) => {
-        console.log(data);
-        P1Cards.pop();
-        P2Cards.pop();
+        if (socket === p1Socket) {
+            console.log('p1');
+            for (let i = 0; i < P1Cards.length; i++) {
+                if (P1Cards[i].suit === data.suit && P1Cards[i].value === data.value) {
+                    P1Cards.splice(i, 1);
+                    removedCard = data;
+                    myDeck.addToBottom(data);
+                }
+            }
+        } else {
+            for (let i = 0; i < P2Cards.length; i++) {
+                if (P2Cards[i].suit === data.suit && P2Cards[i].value === data.value) {
+                    P2Cards.splice(i, 1);
+                    removedCard = data;
+                    myDeck.addToBottom(data);
+                }
+            }
+        }
+        console.log(myDeck);
+    });
+
+
+    socket.on('topCard', (data) => {
+       if (socket === p1Socket) {
+           P1Cards.push(topCard);
+           topCard = myDeck.draw();
+       } else {
+           
+           P2Cards.push(topCard);
+           topCard = myDeck.draw();
+       }
     });
 });
 
@@ -133,7 +162,7 @@ function initData(socket1, socket2) {
     let data = {
         message: 'initData',
         cards: cards,
-        topCard: drawTop
+        topCard: topCard
     };
     socket1.emit('initData', data);
 
@@ -141,7 +170,7 @@ function initData(socket1, socket2) {
     data = {
         message: 'initData',
         cards: cards,
-        topCard: drawTop
+        topCard: topCard
     };
     socket2.emit('initData', data);
     dataUpdate(socket1, socket2);
@@ -150,11 +179,13 @@ function initData(socket1, socket2) {
 function dataUpdate(socket1, socket2) {
     let data1 = {
         cards: P1Cards,
-        topCard: drawTop
+        topCard: topCard,
+        removedCard: removedCard
     };
     let data2 = {
         cards: P2Cards,
-        topCard: drawTop
+        topCard: topCard,
+        removedCard: removedCard
     };
 
     setTimeout(() => {
@@ -168,7 +199,7 @@ function dataUpdate(socket1, socket2) {
 function createGame(socket1, socket2) {
     p1initial = myDeck.drawRandom(10);
     p2initial = myDeck.drawRandom(10);
-    drawTop = myDeck.draw();
+    topCard = myDeck.draw();
     initData(socket1, socket2);
 }
 
