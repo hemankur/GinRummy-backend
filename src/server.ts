@@ -48,8 +48,9 @@ for (let suit of suits) {
 }
 let myDeck = new Deck(cards);
 myDeck = myDeck.shuffle();
-let playerOneCards = myDeck.drawRandom(10);
-let playerTwoCards = myDeck.drawRandom(10);
+let p1initial: any;
+let p2initial: any;
+let drawTop: any;
 let Player = (id, name, cards, room) => {
     let self = {
         name: name,
@@ -69,12 +70,15 @@ let socketCookieParser = require('socket.io-cookie');
 io.use(socketCookieParser);
 
 const gameRooms = [1, 2, 3, 4, 5];
+let p1: any;
+let p1Socket: any;
+let p2: any;
+let p2Socket: any;
 let P1Cards = [];
 let P2Cards = [];
 let remainingDeck = [];
+
 io.of('/games').on('connection', (socket) => {
-    initData(socket);
-    dataUpdate(socket);
     socket.emit("welcome", {message: "Welcome to the games area", data: gameRooms});
 
     socket.on("joinRoom", (room) => {
@@ -89,15 +93,17 @@ io.of('/games').on('connection', (socket) => {
                     PLAYER_COUNT--;
                     return socket.emit('err', err);
                 } else {
+                    if (!p1) {
+                        p1 = decoded.name;
+                        p1Socket = socket;
+                    } else {
+                        p2 = decoded.name;
+                        p2Socket = socket;
+                        createGame(p1Socket, p2Socket);
+                    }
                     await socket.join(room);
                     socket.id = Math.random();
                     SOCKET_LIST[socket.id] = socket;
-                    console.log(Object.keys(PLAYER_LIST).length);
-                    if (Object.keys(PLAYER_LIST).length === 2) {
-                        await io.of('/games').in(room).emit('newState', {
-                            message: 'update',
-                        });
-                    }
                     return io.of('/games').in(room).emit("newUser", {
                         message: "A new user has joined the room " + room,
                     });
@@ -119,34 +125,54 @@ io.of('/games').on('connection', (socket) => {
     });
 });
 
-function initData(socket) {
-    P1Cards = playerOneCards;
-    P2Cards = playerTwoCards;
+function initData(socket1, socket2) {
+    let cards: any;
+    P1Cards = p1initial;
+    P2Cards = p2initial;
+    cards = P1Cards;
     let data = {
         message: 'initData',
-        p1: playerOneCards,
-        p2: playerTwoCards,
-        remaining: myDeck
+        cards: cards,
+        topCard: drawTop
     };
+    socket1.emit('initData', data);
 
-    socket.emit('initData', data);
+    cards = P2Cards;
+    data = {
+        message: 'initData',
+        cards: cards,
+        topCard: drawTop
+    };
+    socket2.emit('initData', data);
+    dataUpdate(socket1, socket2);
 }
 
-function dataUpdate(socket) {
-    let data = {
-        p1: P1Cards,
-        p2: P2Cards,
-        remaining: myDeck
+function dataUpdate(socket1, socket2) {
+    let data1 = {
+        cards: P1Cards,
+        topCard: drawTop
+    };
+    let data2 = {
+        cards: P2Cards,
+        topCard: drawTop
     };
 
     setTimeout(() => {
-        socket.emit('dataUpdate', data);
-        dataUpdate(socket);
+        socket1.emit('dataUpdate', data1);
+        socket2.emit('dataUpdate', data2);
+        dataUpdate(socket1, socket2);
 
     }, 1000);
 }
 
-setInterval(() => {
+function createGame(socket1, socket2) {
+    p1initial = myDeck.drawRandom(10);
+    p2initial = myDeck.drawRandom(10);
+    drawTop = myDeck.draw();
+    initData(socket1, socket2);
+}
+
+/*setInterval(() => {
     var pack = [];
     for (var i in PLAYER_LIST) {
         var player = PLAYER_LIST[i];
@@ -162,5 +188,5 @@ setInterval(() => {
         socket.emit('newPositions', pack);
     }
 
-}, 1000 / 25); // 25 FPS
+}, 1000 / 25); // 25 FPS*/
 
