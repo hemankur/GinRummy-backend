@@ -125,7 +125,8 @@ io.of('/games').on('connection', (socket) => {
             for (let i = 0; i < P1Cards.length; i++) {
                 if (P1Cards[i].suit === data.suit && P1Cards[i].value === data.value) {
                     P1Cards.splice(i, 1);
-                    removedCard = data;
+                    myDeck.addToBottom(topCard);
+                    topCard = data;
                     myDeck.addToBottom(data);
                 }
             }
@@ -133,24 +134,29 @@ io.of('/games').on('connection', (socket) => {
             for (let i = 0; i < P2Cards.length; i++) {
                 if (P2Cards[i].suit === data.suit && P2Cards[i].value === data.value) {
                     P2Cards.splice(i, 1);
-                    removedCard = data;
+                    myDeck.addToBottom(topCard);
+                    topCard = data;
                     myDeck.addToBottom(data);
                 }
             }
         }
-        console.log(myDeck);
     });
 
 
     socket.on('topCard', (data) => {
-       if (socket === p1Socket) {
-           P1Cards.push(topCard);
-           topCard = myDeck.draw();
-       } else {
-           
-           P2Cards.push(topCard);
-           topCard = myDeck.draw();
-       }
+        if (socket === p1Socket) {
+            P1Cards.push(topCard);
+            topCard = myDeck.draw();
+        } else {
+
+            P2Cards.push(topCard);
+            topCard = myDeck.draw();
+        }
+    });
+
+    socket.on('newCard', (data) => {
+        myDeck.addToBottom(topCard);
+        topCard = myDeck.draw();
     });
 });
 
