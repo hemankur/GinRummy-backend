@@ -1,46 +1,17 @@
-import express = require('express');
-
-require('dotenv').config();
-const jwt = require('jsonwebtoken');
-
-
+const express = require('express');
+const router = express.Router();
 import bcrypt = require('bcrypt');
-import mysql = require('mysql');
-
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: process.env.DB_PASS,
-    database: 'rummy',
-    port: 3306
+const auth = require('../AuthController');
+const jwt = require('jsonwebtoken');
+const connection = require('../lib/database');
+router.get('/', (req, res) => {
+    res.send('Router users');
 });
-
-let app = module.exports = express();
-
-let bodyParser = require('body-parser');
-app.use(bodyParser.urlencoded({extended: false}));
-app.use(bodyParser.json());
-
-let cors = require('cors');
-app.use(cors());
-
-app.get('/api/users/', authenticateToken, (req, res) => {
-
-    connection.query('SELECT * FROM users', (err, rows) => {
-        if (err) {
-            console.log(err);
-        }
-        res.json({
-            data: rows
-        });
-    });
-});
-
 
 /**
  * POST Request for users.
  */
-app.post('/api/user/create/', async (req, res) => {
+router.post('/create', async (req, res) => {
     let errors = [];
     if (!req.body.username) {
         errors.push("Invalid 'username'");
@@ -72,7 +43,7 @@ app.post('/api/user/create/', async (req, res) => {
     });
 });
 
-app.post('/api/user/login/', async (req, res) => {
+router.post('/login', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "https://localhost:4200");
     let errors = [];
     if (!req.body.username) {
@@ -108,7 +79,7 @@ app.post('/api/user/login/', async (req, res) => {
                 bcrypt.compare(password, rows[0].password, function (err, result) {
                     if (err) {
                         console.log(err);
-                    }
+                        }
                     if (!result) {
                         res.json({
                             message: errorMessage,
@@ -117,7 +88,7 @@ app.post('/api/user/login/', async (req, res) => {
                         return;
                     } else {
                         const user = {name: rows[0].username};
-                        const accessToken = generateAccessToken(user);
+                        const accessToken = auth.generateAccessToken(user);
                         const iat = jwt.decode(accessToken).iat;
                         let sql = 'update users set token = ? where username = ? ';
                         let params = [iat, user.name];
@@ -126,7 +97,7 @@ app.post('/api/user/login/', async (req, res) => {
                                 console.log(err);
                             }
                         });
-                        const age = 3600 * 60 * 24 * 7;
+                        const age = 3600 * 24 * 7;
                         const options = {
                             maxAge: age,
                             httpOnly: true,
@@ -145,7 +116,7 @@ app.post('/api/user/login/', async (req, res) => {
 /**
  * Logout route
  */
-app.post('/api/user/logout/', (req, res) => {
+/*router.post('/logout', (req, res) => {
     let username = req.body.username;
     res.header("Access-Control-Allow-Origin", "https://localhost:4200");
     let sql = 'update users set token = ? where username = ?';
@@ -166,12 +137,12 @@ app.post('/api/user/logout/', (req, res) => {
             });
         }
     });
-});
+});*/
 
 /**
  * GET request to return user data
  */
-app.get('/api/user/:username', authenticateToken, (req, res) => {
+router.get('/:username', auth.authenticateToken, (req, res) => {
     res.header("Access-Control-Allow-Origin", "https://localhost:4200");
     let sql = 'SELECT username FROM users where username = ?';
     let params = [req.params.username];
@@ -188,33 +159,4 @@ app.get('/api/user/:username', authenticateToken, (req, res) => {
     });
 });
 
-function authenticateToken(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "https://localhost:4200");
-    const token = req.cookies.access_token;
-    const decoded = jwt.decode(token);
-    if (token === null) return res.sendStatus(401);
-
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (err) {
-            return res.sendStatus(403);
-        } else {
-            let sql = 'select token from users where username = ?';
-            let params = [decoded.name];
-            connection.query(sql, params, (err, rows) => {
-                if (rows[0].token === null) {
-                    return res.sendStatus(403);
-                } else {
-                    req.user = user;
-                    next()
-                }
-            });
-        }
-    });
-}
-
-function generateAccessToken(user) {
-    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1d'});
-}
-
-
-
+module.exports = router;
