@@ -69,6 +69,7 @@ class Game {
     private p2Cards: any;
     private topCard: any;
     private state: number;
+    private melds: [];
 
     constructor(id, player1, player2, player1Name, player2Name) {
         this.id = id;
@@ -78,6 +79,7 @@ class Game {
         this.player2Name = player2Name;
         this.deck = myDeck;
         this.state = 1;
+        this.melds = [];
     }
 
     deal() {
@@ -111,13 +113,67 @@ function startGame(gameID, players) {
 function update(gameID) {
     for (let game of GAMES) {
         if (game.id === gameID) {
-            io.sockets.to(game.player1).emit('updateGame', {cards: game.p1Cards, top: game.topCard});
-            io.sockets.to(game.player2).emit('updateGame', {cards: game.p2Cards, top: game.topCard});
+            let result;
+            let score = 0;
+            console.log(game.p1Cards.length);
+            console.log(game.p2Cards.length);
+            if (game.p1Cards.length === 0) {
+                for (let card of game.p2Cards) {
+                    if (card.value === 'Ace') {
+                        score++;
+                    } else if (card.value === 'Jack') {
+                        score += 11;
+                    } else if (card.value === 'Queen') {
+                        score += 12;
+                    } else if (card.value === 'King') {
+                        score += 13;
+                    } else {
+                        score += card.value;
+                    }
+                }
+                result = 'Player 1 won with ' + score + ' points';
+                io.sockets.to(game.player1).emit('result', {message: 'You won!'});
+                io.sockets.to(game.player2).emit('result', {message: 'Sorry, you lost :('});
+                console.log(result);
+            }
+            if (game.p2Cards.length === 0) {
+                for (let card of game.p1Cards) {
+                    if (card.value === 'Ace') {
+                        score++;
+                    } else if (card.value === 'Jack') {
+                        score += 11;
+                    } else if (card.value === 'Queen') {
+                        score += 12;
+                    } else if (card.value === 'King') {
+                        score += 13;
+                    } else {
+                        score += card.value;
+                    }
+                }
+                result = 'Player 2 won with ' + score + ' points';
+                io.sockets.to(game.player2).emit('result', {message: 'You won!'});
+                io.sockets.to(game.player1).emit('result', {message: 'Sorry, you lost :('});
+                console.log(result);
+            }
+            io.sockets.to(game.player1).emit('updateGame', {
+                cards: game.p1Cards,
+                top: game.topCard,
+                state: game.state,
+                melds: game.melds,
+                result: result
+            });
+            io.sockets.to(game.player2).emit('updateGame', {
+                cards: game.p2Cards,
+                top: game.topCard,
+                state: game.state,
+                melds: game.melds,
+                result: result
+            });
         }
     }
     setTimeout(() => {
         update(gameID);
-    }, 1000);
+    }, 2000);
 
 }
 
@@ -226,7 +282,113 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('gin', (data) => {
+        let meld1 = data.meld1;
+        let meld2 = data.meld2;
+        let meld3 = data.meld3;
+
+        if (!((meld1.length === 3 || meld1.length === 4) && (meld2.length === 3 || meld2.length === 4) && (meld3.length === 3 || meld3.length === 4) && ((meld1.length + meld2.length + meld3.length) === 10))) {
+            socket.emit('result', {message: 'invalid melds'});
+            return;
+        } else {
+            if (checkMeld(meld1) && checkMeld(meld2) && checkMeld(meld3)) {
+                socket.emit('result', {message: 'You won!'});
+            } else {
+                socket.emit('result', {message: 'Sorry, Try Again!'});
+            }
+        }
+    });
+
+    socket.on('createMeld', (data) => {
+        for (let game of GAMES) {
+            if (game.id === data.gameID) {
+                if (checkMeld(data.meld)) {
+                    game.melds.push(data.meld);
+                    if (socket.id === game.player1) {
+                        for (let card of data.meld) {
+                            for (let i = 0; i < game.p1Cards.length; i++) {
+                                if (game.p1Cards[i].suit === card.suit && game.p1Cards[i].value === card.value) {
+                                    game.p1Cards.splice(i, 1);
+                                }
+                            }
+                        }
+                    } else if (socket.id === game.player2) {
+                        for (let card of data.meld) {
+                            for (let i = 0; i < game.p2Cards.length; i++) {
+                                if (game.p2Cards[i].suit === card.suit && game.p2Cards[i].value === card.value) {
+                                    game.p2Cards.splice(i, 1);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    socket.on('layoff', (data) => {
+        let index = data.data.meld - 1;
+        for (let game of GAMES) {
+            if (game.id === data.gameID) {
+                game.melds[index].push(data.data.card);
+                if (socket.id === game.player1) {
+                    for (let i = 0; i < game.p1Cards.length; i++) {
+                        if (game.p1Cards[i].suit === data.data.card.suit && game.p1Cards[i].value === data.data.card.value) {
+                            game.p1Cards.splice(i, 1);
+                        }
+                    }
+                } else if (socket.id === game.player2) {
+                    for (let i = 0; i < game.p2Cards.length; i++) {
+                        if (game.p2Cards[i].suit === data.data.card.suit && game.p2Cards[i].value === data.data.card.value) {
+                            game.p2Cards.splice(i, 1);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
         // reconnect
     });
-});
+})
+;
+
+
+function checkMeld(meld: any): boolean {
+    if (meld.length === 3) {
+        if ((meld[0].value === meld[1].value) && (meld[1].value === meld[2].value)) {
+            return true;
+        } else {
+            if ((meld[0].suit === meld[1].suit) && (meld[1].suit === meld[2].suit)) {
+                // check for sequence
+                if ((meld[0].value === 'Ace' && meld[1].value === 2 && meld[2].value === 3) ||
+                    (meld[0].value === 9 && meld[1].value === 10 && meld[2].value === 'Jack') ||
+                    (meld[0].value === 10 && meld[1].value === 'Jack' && meld[2].value === 'Queen') ||
+                    (meld[0].value === 'Jack' && meld[1].value === 'Queen' && meld[2].value === 'King') ||
+                    (meld[0].value === 'Queen' && meld[1].value === 'King' && meld[2].value === 'Ace')) {
+                    return true;
+                } else if ((meld[2].value === meld[1].value + 1) && (meld[1].value === meld[0].value + 1)) {
+                    return true;
+                }
+            }
+        }
+    } else if (meld.length === 4) {
+        if ((meld[0].value === meld[1].value) && (meld[1].value === meld[2].value) && (meld[2].value === meld[3].value)) {
+            return true;
+        } else {
+            if ((meld[0].suit === meld[1].suit) && (meld[1].suit === meld[2].suit) && (meld[2].suit === meld[3].suit)) {
+                // check for sequence
+                if ((meld[0].value === 'Ace' && meld[1].value === 2 && meld[2].value === 3 && meld[3].value === 4) ||
+                    (meld[0].value === 'Jack' && meld[1].value === 'Queen' && meld[2].value === 'King' && meld[3].value === 'Ace') ||
+                    (meld[0].value === 10 && meld[1].value === 'Jack' && meld[2].value === 'Queen' && meld[3].value === 'King') ||
+                    (meld[0].value === 9 && meld[1].value === 10 && meld[2].value === 'Jack' && meld[3].value === 'Queen') ||
+                    (meld[0].value === 8 && meld[1].value === 9 && meld[2].value === 10 && meld[3].value === 'Jack')) {
+                    return true;
+                } else if ((meld[3].value === meld[2].value + 1) && (meld[2].value === meld[1].value + 1) && (meld[1].value === meld[0].value + 1)) {
+                    return true;
+                }
+            }
+        }
+    }
+}

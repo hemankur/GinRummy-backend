@@ -42,7 +42,6 @@ app.post('/api/games/create/', (req, res) => {
             });
             return;
         } else {
-            console.log(row);
             res.json({
                 message: 'success',
                 status: true
